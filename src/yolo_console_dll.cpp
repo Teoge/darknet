@@ -3,7 +3,6 @@
 #include <string>
 #include <vector>
 #include <fstream>
-#include <chrono>
 
 #define OPENCV
 
@@ -48,31 +47,12 @@ std::vector<std::string> objects_names_from_file(std::string const filename) {
 	return file_lines;
 }
 
-image_t mat_to_image(cv::Mat& img)
-{
-	image_t out;
-	out.h = 416;
-	out.w = 416;
-	out.c = 3;
-	out.data = (float *)calloc(416 * 416 * 3, sizeof(float));
-	//img.convertTo(floatimg, CV_32FC3, 1 / 255.0f);
-	cv::normalize(img, img, 0.0, 1.0, cv::NORM_MINMAX);
-	std::vector<cv::Mat> dst;
-	cv::Mat channelr(416, 416, CV_32FC1, out.data);
-	cv::Mat channelb(416, 416, CV_32FC1, out.data + 416 * 416);
-	cv::Mat channelg(416, 416, CV_32FC1, out.data + 2 * 416 * 416);
-	dst.push_back(channelg);
-	dst.push_back(channelb);
-	dst.push_back(channelr);
-	cv::split(img, dst);
-	return out;
-}
 
 int main() 
 {
-	Detector detector("yolo-point.cfg", "backup/yolo-point_2000.weights");
+	Detector detector("yolo-voc.cfg", "yolo-voc.weights");
 
-	auto obj_names = objects_names_from_file("data/obj.names");
+	auto obj_names = objects_names_from_file("data/voc.names");
 
 	while (true) 
 	{
@@ -80,7 +60,6 @@ int main()
 		std::cout << "input image or video filename: ";
 		std::cin >> filename;
 		if (filename.size() == 0) break;
-		cv::namedWindow("test");
 		
 		try {
 #ifdef OPENCV
@@ -97,25 +76,10 @@ int main()
 				}
 			}
 			else {	// image file
-				cv::Mat mat_img;
-				cv::resize(cv::imread(filename), mat_img, cv::Size(416, 416));
-				cv::Mat float_img;
-				mat_img.convertTo(float_img, CV_32FC3);
-				auto t_start = std::chrono::high_resolution_clock::now();
-				std::vector<point_t> result_vec = detector.PLPdetect(mat_to_image(float_img), 0.6f);
-				auto t_end = std::chrono::high_resolution_clock::now();
-				std::cout << "time: " << std::chrono::duration<double, std::milli>(t_end - t_start).count() << " ms\n";
-
-				for (auto p : result_vec)
-				{
-					cv::circle(mat_img, cv::Point2f(p.x, p.y), 3, cv::Scalar(255, 255, 0));
-					std::cout << p.prob << std::endl;
-				}
-				cv::imshow("test", mat_img);
-				cv::waitKey(1);
-				//std::vector<bbox_t> result_vec = detector.detect(mat_img);
-				//draw_boxes(mat_img, result_vec, obj_names);
-				//show_result(result_vec, obj_names);
+				cv::Mat mat_img = cv::imread(filename);
+				std::vector<bbox_t> result_vec = detector.detect(mat_img);
+				draw_boxes(mat_img, result_vec, obj_names);
+				show_result(result_vec, obj_names);
 			}
 #else
 			//std::vector<bbox_t> result_vec = detector.detect(filename);

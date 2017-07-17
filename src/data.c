@@ -337,39 +337,6 @@ void fill_truth_detection(char *path, int num_boxes, float *truth, int classes, 
     free(boxes);
 }
 
-void fill_truth_point(char *path, int num_boxes, float *truth, int flip)
-{
-	char labelpath[4096];
-	find_replace(path, "images", "labels", labelpath);
-	find_replace(labelpath, "JPEGImages", "labels", labelpath);
-
-	find_replace(labelpath, "raw", "labels", labelpath);
-	find_replace(labelpath, ".jpg", ".txt", labelpath);
-	find_replace(labelpath, ".png", ".txt", labelpath);
-	find_replace(labelpath, ".JPG", ".txt", labelpath);
-	find_replace(labelpath, ".JPEG", ".txt", labelpath);
-
-	FILE *file = fopen(labelpath, "r");
-	if (!file) file_error(labelpath);
-	int count = 0;
-	float x, y;
-	box_label *boxes = calloc(1, sizeof(box_label));
-	while (fscanf(file, "%f %f", &x, &y) == 2 && count <= num_boxes) {
-		boxes = realloc(boxes, (count + 1) * sizeof(box_label));
-		boxes[count].x = x;
-		boxes[count].y = y;
-		++count;
-	}
-	fclose(file);
-	randomize_boxes(boxes, count);
-	int i;
-	for (i = 0; i < count; ++i) {
-		truth[i * 2 + 0] = boxes[i].x;
-		truth[i * 2 + 1] = boxes[i].y;
-	}
-	free(boxes);
-}
-
 #define NUMCHARS 37
 
 void print_letters(float *pred, int n)
@@ -753,30 +720,6 @@ data load_data_detection(int n, char **paths, int m, int w, int h, int boxes, in
     return d;
 }
 
-data load_data_point(int n, char ** paths, int m, int w, int h, int boxes, float hue, float saturation, float exposure)
-{
-	char **random_paths = get_random_paths(paths, n, m);
-	int i;
-	data d = { 0 };
-	d.shallow = 0;
-
-	d.X.rows = n;
-	d.X.vals = calloc(d.X.rows, sizeof(float*));
-	d.X.cols = h*w * 3;
-
-	d.y = make_matrix(n, 2 * boxes);
-	for (i = 0; i < n; ++i) {
-		image orig = load_image_color(random_paths[i], 0, 0);
-		int flip = random_gen() % 2;
-		if (flip) flip_image(orig);
-		random_distort_image(orig, hue, saturation, exposure);
-		d.X.vals[i] = orig.data;
-		fill_truth_point(random_paths[i], boxes, d.y.vals[i], flip);
-	}
-	free(random_paths);
-	return d;
-}
-
 
 void *load_thread(void *ptr)
 {
@@ -799,9 +742,7 @@ void *load_thread(void *ptr)
         *a.d = load_data_region(a.n, a.paths, a.m, a.w, a.h, a.num_boxes, a.classes, a.jitter, a.hue, a.saturation, a.exposure);
     } else if (a.type == DETECTION_DATA){
         *a.d = load_data_detection(a.n, a.paths, a.m, a.w, a.h, a.num_boxes, a.classes, a.jitter, a.hue, a.saturation, a.exposure);
-    } else if (a.type == POINT_DATA) {
-		*a.d = load_data_point(a.n, a.paths, a.m, a.w, a.h, a.num_boxes, a.hue, a.saturation, a.exposure);
-	} else if (a.type == SWAG_DATA){
+    } else if (a.type == SWAG_DATA){
         *a.d = load_data_swag(a.paths, a.n, a.classes, a.jitter);
     } else if (a.type == COMPARE_DATA){
         *a.d = load_data_compare(a.n, a.paths, a.m, a.classes, a.w, a.h);

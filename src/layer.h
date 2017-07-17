@@ -33,7 +33,6 @@ typedef enum {
     NETWORK,
     XNOR,
     REGION,
-	POINT_REGION,
     REORG,
     BLANK
 } LAYER_TYPE;

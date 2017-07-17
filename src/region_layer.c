@@ -175,8 +175,6 @@ void forward_region_layer(const region_layer l, network_state state)
     }
 #endif
     if(!state.train) return;
-	// Following are steps to caculate the loss in yolo.
-	// Fisrt, initialize the gradient to 0.
     memset(l.delta, 0, l.outputs * l.batch * sizeof(float));
     float avg_iou = 0;
     float recall = 0;
@@ -214,7 +212,6 @@ void forward_region_layer(const region_layer l, network_state state)
             }
             if(onlyclass) continue;
         }
-		// Find those predicted bounding boxes without an object in it, calculate no object loss.
         for (j = 0; j < l.h; ++j) {
             for (i = 0; i < l.w; ++i) {
                 for (n = 0; n < l.n; ++n) {
@@ -243,7 +240,7 @@ void forward_region_layer(const region_layer l, network_state state)
                             }
                         }
                     }
-					// For first 12800 images, if there is no object in cell, make it regression to default anchor box.
+
                     if(*(state.net.seen) < 12800){
                         box truth = {0};
                         truth.x = (i + .5)/l.w;
@@ -259,7 +256,6 @@ void forward_region_layer(const region_layer l, network_state state)
                 }
             }
         }
-		// For every ground truth, find the anchor box responsible to detect it, and regression to it.
         for(t = 0; t < 30; ++t){
             box truth = float_to_box(state.truth + t*5 + b*l.truths);
 
@@ -273,8 +269,7 @@ void forward_region_layer(const region_layer l, network_state state)
             box truth_shift = truth;
             truth_shift.x = 0;
             truth_shift.y = 0;
-
-			//find the one who is responsible for it.
+            //printf("index %d %d\n",i, j);
             for(n = 0; n < l.n; ++n){
                 int index = size*(j*l.w*l.n + i*l.n + n) + b*l.outputs;
                 box pred = get_region_box(l.output, l.biases, n, index, i, j, l.w, l.h);
@@ -312,7 +307,6 @@ void forward_region_layer(const region_layer l, network_state state)
 
             int class = state.truth[t*5 + b*l.truths + 4];
             if (l.map) class = l.map[class];
-			// Calculate classification loss.
             delta_region_class(l.output, l.delta, best_index + 5, class, l.classes, l.softmax_tree, l.class_scale, &avg_cat);
             ++count;
             ++class_count;
