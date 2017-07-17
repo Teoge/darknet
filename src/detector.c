@@ -65,7 +65,7 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile, int *gpus, i
     args.jitter = jitter;
     args.num_boxes = l.max_boxes;
     args.d = &buffer;
-    args.type = DETECTION_DATA;
+    args.type = POINT_DATA;
     args.threads = 8;
 
     args.angle = net.angle;
@@ -101,23 +101,6 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile, int *gpus, i
         pthread_join(load_thread, 0);
         train = buffer;
         load_thread = load_data(args);
-
-        /*
-           int k;
-           for(k = 0; k < l.max_boxes; ++k){
-           box b = float_to_box(train.y.vals[10] + 1 + k*5);
-           if(!b.x) break;
-           printf("loaded: %f %f %f %f\n", b.x, b.y, b.w, b.h);
-           }
-           image im = float_to_image(448, 448, 3, train.X.vals[10]);
-           int k;
-           for(k = 0; k < l.max_boxes; ++k){
-           box b = float_to_box(train.y.vals[10] + 1 + k*5);
-           printf("%d %d %d %d\n", truth.x, truth.y, truth.w, truth.h);
-           draw_bbox(im, b, 8, 1,0,0);
-           }
-           save_image(im, "truth11");
-         */
 
         printf("Loaded: %lf seconds\n", sec(clock()-time));
 
