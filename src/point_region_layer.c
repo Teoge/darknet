@@ -90,7 +90,7 @@ void forward_point_region_layer(const point_region_layer l, network_state state)
 	if (!state.train) return;
 
 	memset(l.delta, 0, l.outputs * l.batch * sizeof(float));
-	float avg_dist = 0;
+	float avg_confid = 0;
 	float recall = 0;
 	float avg_obj = 0;
 	float avg_anyobj = 0;
@@ -100,9 +100,21 @@ void forward_point_region_layer(const point_region_layer l, network_state state)
 	for (b = 0; b < l.batch; ++b) {
 		for (j = 0; j < l.h; ++j) {
 			for (i = 0; i < l.w; ++i) {
+				float shortest_dist = 1.0f;
 				int index = size*(j*l.w + i) + b*l.outputs;
+				float x = (logistic_activate(l.output[index + 0]) + i) / l.w;
+				float y = (logistic_activate(l.output[index + 1]) + j) / l.h;
+				for (t = 0; t < 30; ++t) {
+					int truth_index = t * 2 + b*l.truths;
+					if (!state.truth[truth_index]) break;
+					float dx = x - state.truth[truth_index + 0];
+					float dy = y - state.truth[truth_index + 1];
+					float dist = (dx*dx + dy*dy) * 2704;//2704 = 52^2
+					if (dist < shortest_dist)shortest_dist = dist;
+				}
 				avg_anyobj += l.output[index + 2];
-				l.delta[index + 2] = l.noobject_scale * ((0 - l.output[index + 2]) * logistic_gradient(l.output[index + 2]));
+				if (shortest_dist > 1)
+					l.delta[index + 2] = l.noobject_scale * ((0 - l.output[index + 2]) * logistic_gradient(l.output[index + 2]));
 			}
 		}
 		for (t = 0; t < 30; ++t) {
@@ -117,16 +129,21 @@ void forward_point_region_layer(const point_region_layer l, network_state state)
 			float dy = logistic_activate(l.output[index + 1]);
 			l.delta[index + 0] = l.coord_scale * (tx - dx) * logistic_gradient(dx);
 			l.delta[index + 1] = l.coord_scale * (ty - dy) * logistic_gradient(dy);
-			float dist = ((tx - dx)*(tx - dx) + (ty - dy)*(ty - dy)) / 2;
-			if (dist < .3) recall += 1;
-			avg_dist += dist;
+			float dist = ((tx - dx)*(tx - dx) + (ty - dy)*(ty - dy)) * 16;
+			if (dist < .2f) recall += 1;
 			avg_obj += l.output[index + 2];
-			l.delta[index + 2] = l.object_scale * (1 - dist - l.output[index + 2]) * logistic_gradient(l.output[index + 2]);
+			if (dist < 1) {
+				avg_confid += 1 - dist;
+				l.delta[index + 2] = l.object_scale * (1 - dist - l.output[index + 2]) * logistic_gradient(l.output[index + 2]);
+			}
+			else {
+				l.delta[index + 2] = l.noobject_scale * (0 - l.output[index + 2]) * logistic_gradient(l.output[index + 2]);
+			}
 			++count;
 		}
 	}
 	*(l.cost) = pow(mag_array(l.delta, l.outputs * l.batch), 2);
-	printf("Region Avg DIST: %f, Obj: %f, No Obj: %f, Avg Recall: %f,  count: %d\n", avg_dist / count, avg_obj / count, avg_anyobj / (l.w*l.h*l.batch), recall / count, count);
+	printf("Region Avg CONFIDENCE: %f, Obj: %f, No Obj: %f, Avg Recall: %f,  count: %d\n", avg_confid / count, avg_obj / count, avg_anyobj / (l.w*l.h*l.batch), recall / count, count);
 }
 
 void backward_point_region_layer(const point_region_layer l, network_state state)

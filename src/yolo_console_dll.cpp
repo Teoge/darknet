@@ -70,7 +70,7 @@ image_t mat_to_image(cv::Mat& img)
 
 int main() 
 {
-	Detector detector("yolo-point.cfg", "backup/yolo-point_2000.weights");
+	Detector detector("yolo-point.cfg", "backup/yolo-point_30000.weights");
 
 	auto obj_names = objects_names_from_file("data/obj.names");
 
@@ -102,13 +102,13 @@ int main()
 				cv::Mat float_img;
 				mat_img.convertTo(float_img, CV_32FC3);
 				auto t_start = std::chrono::high_resolution_clock::now();
-				std::vector<point_t> result_vec = detector.PLPdetect(mat_to_image(float_img), 0.6f);
+				std::vector<point_t> result_vec = detector.PLPdetect(mat_to_image(float_img), 0.9f);
 				auto t_end = std::chrono::high_resolution_clock::now();
 				std::cout << "time: " << std::chrono::duration<double, std::milli>(t_end - t_start).count() << " ms\n";
 
 				for (auto p : result_vec)
 				{
-					cv::circle(mat_img, cv::Point2f(p.x, p.y), 3, cv::Scalar(255, 255, 0));
+					cv::circle(mat_img, cv::Point2f(p.x, p.y), 1, cv::Scalar(0, 0, 255));
 					std::cout << p.prob << std::endl;
 				}
 				cv::imshow("test", mat_img);
