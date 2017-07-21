@@ -65,7 +65,7 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile, int *gpus, i
     args.jitter = jitter;
     args.num_boxes = l.max_boxes;
     args.d = &buffer;
-    args.type = DETECTION_DATA;
+    args.type = PS_DATA;
     args.threads = 8;
 
     args.angle = net.angle;

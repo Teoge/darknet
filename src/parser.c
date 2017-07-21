@@ -23,6 +23,7 @@
 #include "option_list.h"
 #include "parser.h"
 #include "region_layer.h"
+#include "ps_region_layer.h"
 #include "reorg_layer.h"
 #include "rnn_layer.h"
 #include "route_layer.h"
@@ -45,6 +46,7 @@ LAYER_TYPE string_to_layer_type(char * type)
     if (strcmp(type, "[cost]")==0) return COST;
     if (strcmp(type, "[detection]")==0) return DETECTION;
     if (strcmp(type, "[region]")==0) return REGION;
+	if (strcmp(type, "[ps_region]") == 0) return PS_REGION;
     if (strcmp(type, "[local]")==0) return LOCAL;
     if (strcmp(type, "[conv]")==0
             || strcmp(type, "[convolutional]")==0) return CONVOLUTIONAL;
@@ -281,6 +283,35 @@ layer parse_region(list *options, size_params params)
     }
     return l;
 }
+
+layer parse_ps_region(list *options, size_params params)
+{
+	int coords = option_find_int(options, "coords", 4);
+	int classes = option_find_int(options, "classes", 4);
+	int num = option_find_int(options, "num", 1);
+
+	layer l = make_ps_region_layer(params.batch, params.w, params.h, num, classes, coords);
+	assert(l.outputs == params.inputs);
+
+	l.log = option_find_int_quiet(options, "log", 0);
+	l.sqrt = option_find_int_quiet(options, "sqrt", 0);
+
+	l.softmax = option_find_int(options, "softmax", 1);
+	l.max_boxes = option_find_int_quiet(options, "max", 30);
+	l.jitter = option_find_float(options, "jitter", .0);
+
+	l.thresh = option_find_float(options, "thresh", .5);
+	l.absolute = option_find_int_quiet(options, "absolute", 0);
+	l.random = option_find_int_quiet(options, "random", 0);
+
+	l.coord_scale = option_find_float(options, "coord_scale", 1);
+	l.object_scale = option_find_float(options, "object_scale", 1);
+	l.noobject_scale = option_find_float(options, "noobject_scale", 1);
+	l.class_scale = option_find_float(options, "class_scale", 1);
+
+	return l;
+}
+
 detection_layer parse_detection(list *options, size_params params)
 {
     int coords = option_find_int(options, "coords", 1);
@@ -635,6 +666,8 @@ network parse_network_cfg(char *filename)
             l = parse_cost(options, params);
         }else if(lt == REGION){
             l = parse_region(options, params);
+		}else if(lt == PS_REGION) {
+			l = parse_ps_region(options, params);
         }else if(lt == DETECTION){
             l = parse_detection(options, params);
         }else if(lt == SOFTMAX){
